@@ -1,0 +1,22 @@
+.enlighterEnlighterJSWrapper.EnlighterJSWrapper {
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.enlighterEnlighterJSWrapper.EnlighterJSWrapper pre {
+  font-size: inherit;
+  line-height: 150%;
+}
+
+.enlighterEnlighterJS.EnlighterJS {
+  font-size: inherit;
+}
+
+.enlighterEnlighterJS.EnlighterJS span {
+  font-size: inherit;
+  line-height: 150%;
+}
+
+span.enlighterEnlighterJS.EnlighterJS {
+  padding: 6px 10px 6px 10px;
+}

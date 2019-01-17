@@ -49,5 +49,6 @@ class GINF_Plugin {
    */
   public function enqueue_styles_and_scripts() {
     wp_enqueue_script('ginf/pressbooks', plugin_dir_url(__FILE__) . '../public/js/pressbooks.js', ['jquery',]);
+    wp_enqueue_style('ginf/enlighter', plugin_dir_url(__FILE__) . '../public/css/enlighter.css');
   }
 }
