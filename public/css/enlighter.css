@@ -1,22 +1,36 @@
-.enlighterEnlighterJSWrapper.EnlighterJSWrapper {
+div.enlighterEnlighterJSWrapper.EnlighterJSWrapper {
   font-size: inherit;
   line-height: inherit;
 }
 
-.enlighterEnlighterJSWrapper.EnlighterJSWrapper pre {
-  font-size: inherit;
-  line-height: 150%;
+div.enlighterEnlighterJSWrapper.EnlighterJSWrapper pre {
+  font-size: 85%;
+  line-height: 135%;
 }
 
-.enlighterEnlighterJS.EnlighterJS {
+div.enlighterEnlighterJSWrapper.EnlighterJSWrapper ol.enlighterEnlighterJS.EnlighterJS, div.enlighterEnlighterJSWrapper.EnlighterJSWrapper ul.enlighterEnlighterJS.EnlighterJS {
   font-size: inherit;
+  line-height: inherit;
 }
 
-.enlighterEnlighterJS.EnlighterJS span {
-  font-size: inherit;
-  line-height: 150%;
+div.enlighterEnlighterJSWrapper.EnlighterJSWrapper ol.enlighterEnlighterJS.EnlighterJS li, div.enlighterEnlighterJSWrapper.EnlighterJSWrapper ul.enlighterEnlighterJS.EnlighterJS li {
+  font-size: 75%;
+  line-height: 135%;
+}
+
+div.enlighterEnlighterJSWrapper.EnlighterJSWrapper span, div.enlighterEnlighterJSWrapper.EnlighterJSWrapper pre span {
+  font-size: 113%;
 }
 
 span.enlighterEnlighterJS.EnlighterJS {
-  padding: 6px 10px 6px 10px;
+  font-size: 85%;
+}
+
+span.enlighterEnlighterJS.EnlighterJS span {
+  font-size: inherit;
+  line-height: 130%;
+}
+
+span.enlighterEnlighterJS.EnlighterJS {
+  padding: 3px 5px 3px 5px;
 }
