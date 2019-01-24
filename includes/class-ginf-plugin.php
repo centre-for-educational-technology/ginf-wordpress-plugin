@@ -25,6 +25,7 @@ class GINF_Plugin {
     add_action('rest_api_init', [$this, 'init_rest_api']);
     add_action('h5p_alter_library_scripts', [$this, 'h5p_alter_library_scripts'], 10, 3);
     add_action('init', ['GINF_Plugin', 'check_for_updates'], 1);
+    add_action('h5p_additional_embed_head_tags', [$this, 'h5p_additional_embed_head_tags'], 10, 3);
   }
 
   /**
@@ -88,6 +89,13 @@ class GINF_Plugin {
   }
 
   /**
+   * Implements h5p_additional_embed_head_tags action
+   */
+  public function h5p_additional_embed_head_tags(&$tags) {
+    $tags[] = '<meta name="api_nonce" content="' . wp_create_nonce( 'wp_rest' ) . '">';
+  }
+
+  /**
    * Registers REST API ndpoints
    */
   public function init_rest_api() {
@@ -104,9 +112,8 @@ class GINF_Plugin {
    */
   public function rest_xapi_statements($request) {
     global $wpdb;
-    // XXX Second nonce fails in case of logged in user, the rest API is probably to blame for it acting like that
-    // It might be needed to define a standalone endpoint that uses ajax API in order to get that working
-    if (!(wp_verify_nonce($request->get_header('X-WP-Nonce'), 'wp_rest') || wp_verify_nonce($request->get_header('X-H5P-Nonce'), 'h5p_result')))
+
+    if (!wp_verify_nonce($request->get_header('X-WP-Nonce'), 'wp_rest'))
     {
       return new WP_REST_Response(['message' => 'Forbidden'], 403);
     }
