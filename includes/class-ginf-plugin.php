@@ -26,6 +26,7 @@ class GINF_Plugin {
     add_action('h5p_alter_library_scripts', [$this, 'h5p_alter_library_scripts'], 10, 3);
     add_action('init', ['GINF_Plugin', 'check_for_updates'], 1);
     add_action('h5p_additional_embed_head_tags', [$this, 'h5p_additional_embed_head_tags'], 10, 3);
+    add_filter('http_request_args', [$this, 'http_request_args'], 999, 2);
   }
 
   /**
@@ -188,5 +189,19 @@ class GINF_Plugin {
       KEY created_at (created_at),
       KEY updated_at (created_at)
     ) {$charset};");
+  }
+
+  /**
+   * Make sure to set longer timeout to H5P API cURL calls
+   * @param  array  $r   Array of arguments
+   * @param  string $url URL of the request
+   * @return array       Array of arguments
+   */
+  public function http_request_args($r, $url) {
+    if (isset($r['timeout']) && (int)$r['timeout'] < 90 && stripos($url, 'api.h5p.org') !== FALSE) {
+      $r['timeout'] = 90;
+    }
+
+    return $r;
   }
 }
