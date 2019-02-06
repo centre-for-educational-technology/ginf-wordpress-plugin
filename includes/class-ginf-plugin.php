@@ -26,7 +26,7 @@ class GINF_Plugin {
     add_action('h5p_alter_library_scripts', [$this, 'h5p_alter_library_scripts'], 10, 3);
     add_action('init', ['GINF_Plugin', 'check_for_updates'], 1);
     add_action('h5p_additional_embed_head_tags', [$this, 'h5p_additional_embed_head_tags'], 10, 3);
-    add_filter('http_request_args', [$this, 'http_request_args'], 999, 2);
+    add_action('h5p_alter_library_semantics', [$this, 'h5p_alter_library_semantics'], 10, 4);
   }
 
   /**
@@ -94,6 +94,32 @@ class GINF_Plugin {
    */
   public function h5p_additional_embed_head_tags(&$tags) {
     $tags[] = '<meta name="api_nonce" content="' . wp_create_nonce( 'wp_rest' ) . '">';
+  }
+
+  /**
+   * Implements h5p_alter_library_semantics action
+   */
+  public function h5p_alter_library_semantics(&$semantics, $name, $majorVersion, $minorVersion) {
+    // SOURCE: https://h5p.org/comment/11449#comment-11449
+    foreach ($semantics as $field) {
+      // Go through list fields
+      while ($field->type === 'list') {
+        $field = $field->field;
+      }
+      // Go through group fields
+      if ($field->type === 'group') {
+        $this->h5p_alter_library_semantics($field->fields, $name, $majorVersion, $minorVersion);
+      }
+
+      // Check to see if we have the correct type and widget
+      if ($field->type === 'text' && isset($field->widget) && $field->widget === 'html') {
+        // Found a field. Add support for table tags.
+        if (!isset($field->tags)) {
+          $field->tags = [];
+        }
+        $field->tags = array_merge($field->tags, ['pre',]);
+      }
+    }
   }
 
   /**
@@ -189,19 +215,5 @@ class GINF_Plugin {
       KEY created_at (created_at),
       KEY updated_at (created_at)
     ) {$charset};");
-  }
-
-  /**
-   * Make sure to set longer timeout to H5P API cURL calls
-   * @param  array  $r   Array of arguments
-   * @param  string $url URL of the request
-   * @return array       Array of arguments
-   */
-  public function http_request_args($r, $url) {
-    if (isset($r['timeout']) && (int)$r['timeout'] < 90 && stripos($url, 'api.h5p.org') !== FALSE) {
-      $r['timeout'] = 90;
-    }
-
-    return $r;
   }
 }
