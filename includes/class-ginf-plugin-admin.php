@@ -18,6 +18,8 @@ class GINF_Plugin_Admin {
     add_action('admin_enqueue_scripts', [$this, 'enqueue_styles_and_scripts']);
     add_action('h5p_alter_library_scripts', [$this, 'h5p_alter_library_scripts'], 10, 3);
     add_filter('http_request_args', [$this, 'http_request_args'], 999, 2);
+    add_action('network_admin_menu', [$this, 'network_admin_menu']);
+    add_action('network_admin_edit_ginf_lrs_settings',  [$this, 'lrs_save_settings'], 10, 0);
   }
 
   /**
@@ -67,5 +69,45 @@ class GINF_Plugin_Admin {
     }
 
     return $r;
+  }
+
+  /**
+   * Add pages to network admin menu
+   */
+  public function network_admin_menu() {
+    add_submenu_page(
+      'settings.php',
+      'LRS Settings',
+      'LRS Settings',
+      'manage_network_options',
+      'ginf_lrs_settings',
+      [$this, 'lrs_settings_page']
+    );
+  }
+
+  /**
+   * Display LRS settings page
+   */
+  public function lrs_settings_page() {
+    include __DIR__ . '/pages/page-lrs-settings.php';
+  }
+
+  /**
+   * Store LRS settings
+   */
+  public function lrs_save_settings() {
+    check_admin_referer('ginf_lrs_settings');
+    if(!current_user_can('manage_network_options')) wp_die('...');
+
+    update_site_option('ginf_lrs_xapi_endpoint', $_POST['xapi_endpoint']);
+    update_site_option('ginf_lrs_key', $_POST['key']);
+    update_site_option('ginf_lrs_secret', $_POST['secret']);
+    update_site_option('ginf_lrs_batch_size', $_POST['batch_size']);
+
+    wp_redirect(add_query_arg([
+      'page' => 'ginf_lrs_settings',
+      'updated' => 'true'], network_admin_url('settings.php')
+    ));
+    exit;
   }
 }
