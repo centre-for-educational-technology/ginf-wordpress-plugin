@@ -18,6 +18,10 @@ Mostly provides overrides and additions to other plugins and themes used by GINF
 
 1. Upload `ginf` to the `/wp-content/plugins/` directory
 1. Activate the plugin through the 'Plugins' menu in WordPress
+1. Configure the LRS integration from the Network settings
+1. Setup cron jobs to be automatically triggered every half an hour. This should
+only affect the main site/blog as the books themselves are not involved into
+processing of xAPI statements and sending those to the LRS.
 
 == Frequently Asked Questions ==
 

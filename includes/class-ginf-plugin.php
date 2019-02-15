@@ -250,10 +250,20 @@ class GINF_Plugin {
   }
 
   /**
+   * Determines if current blog can run the cron jobs.
+   * Only initial site/blog with identifier of 1 is allowed to do that.
+   * @return bool TRUE if main site, FALSE otherwise
+   */
+  private function can_run_cron_jobs() {
+    get_current_blog_id() === 1;
+  }
+
+  /**
    * Processes statements and creates batches
    */
   public function process_xapi_statements() {
-    // XXX Need to make sure that only one of the sites is running the crons
+    if (!$this->can_run_cron_jobs()) return;
+
     global $wpdb;
 
     $size = (int) get_site_option('ginf_lrs_batch_size');
@@ -384,7 +394,8 @@ class GINF_Plugin {
    */
   public function process_xapi_batches() {
     return; // XXX Safeguard until the code is tested
-    // XXX Need to make sure that only one of the sites is running the crons
+    if (!$this->can_run_cron_jobs()) return;
+
     global $wpdb;
 
     $count = $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->base_prefix}ginf_xapi_batches");
