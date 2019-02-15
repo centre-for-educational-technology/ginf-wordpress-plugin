@@ -237,12 +237,23 @@ class GINF_Plugin {
       KEY statements_count (statements_count),
       KEY retries (retries)
     ) {$charset};");
+    dbDelta("CREATE TABLE {$wpdb->base_prefix}ginf_xapi_http_log (
+      code SMALLINT DEFAULT NULL,
+      message TEXT DEFAULT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT 0,
+      statements LONGTEXT DEFAULT NULL,
+      statements_count SMALLINT UNSIGNED NOT NULL,
+      KEY code (code),
+      KEY created_at (created_at),
+      KEY statements_count (statements_count)
+    ) {$charset};");
   }
 
   /**
    * Processes statements and creates batches
    */
   public function process_xapi_statements() {
+    // XXX Need to make sure that only one of the sites is running the crons
     global $wpdb;
 
     $size = (int) get_site_option('ginf_lrs_batch_size');
@@ -278,13 +289,106 @@ class GINF_Plugin {
   }
 
   /**
+   * Delete batch from the database.
+   * @param  int    $id Batch unique identifier
+   * @return int|false  Number of rows affected/selected or false on error
+   */
+  private function delete_batch(int $id) {
+    global $wpdb;
+
+    return $wpdb->query("DELETE FROM {$wpdb->base_prefix}ginf_xapi_batches WHERE id=$id");
+  }
+
+  /**
+   * Add an entry to LRS HTTP log.
+   * @param int    $code       Response code
+   * @param string $message    Response message
+   * @param int    $count      Number of statements
+   * @param string $statements JSON-encoded array of statements
+   */
+  private function add_to_http_log(int $code, string $message, int $count, string $statements) {
+    global $wpdb;
+
+    return $wpdb->insert("{$wpdb->base_prefix}ginf_xapi_http_log", [
+      'code' => $code,
+      'message' => $message,
+      'created_at' => current_time('mysql'),
+      'statements' => $statements,
+      'statements_count' => $count,
+    ], [
+      '%d', '%s', '%s', '%s', '%d'
+    ]);
+  }
+
+  /**
+   * Sends next batch to the LRS if run time limit has not been exceeded and next batch exists.
+   * Will recursively call itself until conditions prevent that from happening
+   * @param  string $url     URL to the LRS xAPI statements endpoint
+   * @param  string $auth    Basic auth token
+   * @param  int    $start   Timestamp when process began
+   * @param  int    $allowed Allowed time to run in seconds
+   * @return void
+   */
+  private function send_batch_to_lrs(string $url, string $auth, int $start, int $allowed) {
+    if (time() - $start >= $allowed) return;
+
+    $batch = $wpdb->get_row("SELECT id, statements, statements_count, retries FROM {$wpdb->base_prefix}ginf_xapi_batches ORDER BY created_at ASC");
+
+    if (NULL === $batch) return;
+
+    $response = wp_remote_request($url, [
+      'method' => 'POST',
+      'timeout' => 45,
+      'headers' => [
+        'Content-Type' => 'application/json',
+        'X-Experience-API-Version' => '1.0.1',
+        'Authorization' => "Basic $auth",
+        'Content-Length' => strlen($batch->statements),
+      ],
+      'body' => $batch->statements,
+    ]);
+
+    if (is_wp_error($response)) {
+      $this->add_to_http_log(NULL, $response->getMessage(), $batch->statements_count);
+    } else {
+      $code = (int)wp_remote_retrieve_response_code($response);
+      $message = wp_remote_retrieve_response_message($response);
+
+      if ($code === 200) {
+        $this->delete_batch($batch->id);
+        $this->add_to_http_log($code, $messge, $batch->statements_count);
+      } else if ($code === 400) {
+        $this->delete_batch($batch->id);
+        $this->add_to_http_log($code, $message, $batch->statements_count, $batch->statements);
+      } else if ($code === 401) {
+        $wpdb->insert("{$wpdb->base_prefix}ginf_xapi_http_log", [
+          'code' => $code,
+          'message' => $message,
+          'created_at' => current_time('mysql'),
+          'statements_count' => $batch->statements_count,
+        ], [
+          '%d', '%s', '%s', '%d'
+        ]);
+        return;
+      } else {
+        $this->add_to_http_log($code, $messge, $batch->statements_count);
+        return;
+      }
+    }
+
+    $this->send_batch_to_lrs($url, $auth, $start, $allowed);
+  }
+
+  /**
    * Processes batches and sends the data to LRS
-   * @return [type] [description]
    */
   public function process_xapi_batches() {
+    return; // XXX Safeguard until the code is tested
+    // XXX Need to make sure that only one of the sites is running the crons
     global $wpdb;
 
     $count = $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->base_prefix}ginf_xapi_batches");
+    // TODO Need to make sure that the procss will be running for no more than an hour or so
     if ($count > 0) {
       $endpoint = get_site_option('ginf_lrs_xapi_endpoint');
       $key = get_site_option('ginf_lrs_key');
@@ -296,33 +400,10 @@ class GINF_Plugin {
       $url = get_site_option('ginf_lrs_xapi_endpoint') . '/statements';
       $auth = base64_encode("$key:$secret");
 
-      $batches = $wpdb->get_results("SELECT id, statements, statements_count, retries FROM {$wpdb->base_prefix}ginf_xapi_batches ORDER BY created_at ASC");
-      foreach ($batches as $batch) {
-        $response = wp_remote_request(get_site_option('ginf_lrs_xapi_endpoint') . '/statements', [
-          'method' => 'POST',
-          'timeout' => 45,
-          'headers' => [
-            'Content-Type' => 'application/json',
-            'X-Experience-API-Version' => '1.0.1',
-            'Authorization' => "Basic $auth",
-            'Content-Length' => strlen($batch->statements),
-          ],
-          'body' => $batch->statements,
-        ]);
+      $start = time();
+      $allowed = 50 * 60;
 
-        if ($response instanceof WP_Error) {
-          // TODO Extract required data from error object
-          // TODO Either raise number of retries or remove from the database (bad request case)
-        } else {
-          // TODO Remove data from the database
-          // TODO Add information to the log table
-        }
-      }
-      // TODO Go through the batches and try to send those
-      // Make sure that we only try to send a certain number of those (total time less than an hour or so)
-      // If seiding fails, up the number of retries
-      // Make sure that response codes are checked (bad requests should just be added into the log and never retried)
-      // See if there should be a meaningful number of retries
+      $this->send_batch_to_lrs($url, $auth, $start, $allowed);
     }
   }
 }
