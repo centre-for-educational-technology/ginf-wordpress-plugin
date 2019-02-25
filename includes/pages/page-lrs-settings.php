@@ -49,6 +49,7 @@ if(!current_user_can('manage_network_options')) wp_die('...');
         </tr>
       </tbody>
     </table>
+    <input type="button" name="test-lrs-connection" id="test-lrs-connection" class="button button-secondary" value="<?php _e('Test LRS connection', 'ginf'); ?>">
     <?php submit_button(); ?>
   </form>
 </div>

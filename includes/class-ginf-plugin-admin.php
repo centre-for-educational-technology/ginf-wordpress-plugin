@@ -37,10 +37,19 @@ class GINF_Plugin_Admin {
   }
 
   /**
+   * Returns current plugin version
+   *
+   * @return string Plugin version
+   */
+  public static function get_version() {
+    return GINF_Plugin:: VERSION;
+  }
+
+  /**
    * Enqueue any scripts and/or styles
    */
   public function enqueue_styles_and_scripts() {
-    $version = GINF_Plugin::VERSION;
+    $version = self::get_version();
 
     //wp_enqueue_script('ginf/h5p/ckeditor/extraplugins', plugin_dir_url(__FILE__) . '../public/js/h5p-editor.js', [], $version);
   }
@@ -77,11 +86,18 @@ class GINF_Plugin_Admin {
   public function network_admin_menu() {
     add_submenu_page(
       'settings.php',
-      'LRS Settings',
-      'LRS Settings',
+      __('LRS Settings', 'ginf'),
+      __('LRS Settings', 'ginf'),
       'manage_network_options',
       'ginf_lrs_settings',
       [$this, 'lrs_settings_page']
+    );
+    add_menu_page(
+      __('LRS', 'ginf'),
+      __('LRS', 'ginf'),
+      'manage_network_options',
+      'ginf_lrs',
+      [$this, 'lrs_statistics']
     );
   }
 
@@ -89,6 +105,14 @@ class GINF_Plugin_Admin {
    * Display LRS settings page
    */
   public function lrs_settings_page() {
+    $version = self::get_version();
+
+    wp_enqueue_script('ginf/lrs-settings', plugin_dir_url(__FILE__) . '../public/js/lrs-settings.js', ['jquery'], $version);
+    wp_localize_script('ginf/lrs-settings', 'ginf_h5p_rest_object',
+    [
+      'api_nonce' => wp_create_nonce( 'wp_rest' ),
+      'api_url'   => site_url('/wp-json/ginf/v1/')
+    ]);
     include __DIR__ . '/pages/page-lrs-settings.php';
   }
 
@@ -109,5 +133,64 @@ class GINF_Plugin_Admin {
       'updated' => 'true'], network_admin_url('settings.php')
     ));
     exit;
+  }
+
+  /**
+   * Displays LRS statistics page
+   */
+  public function lrs_statistics() {
+    $version = self::get_version();
+
+    wp_register_script('ginf/d3', '//cdnjs.cloudflare.com/ajax/libs/d3/5.9.1/d3.min.js', [], $version);
+    wp_register_script('ginf/c3', '//cdnjs.cloudflare.com/ajax/libs/c3/0.6.12/c3.min.js', ['ginf/d3'], $version);
+    wp_register_style('ginf/c3', '//cdnjs.cloudflare.com/ajax/libs/c3/0.6.12/c3.min.css', [], $version);
+
+    wp_enqueue_script('ginf/lrs-statistics', plugin_dir_url(__FILE__) . '../public/js/lrs-statistics.js', ['jquery', 'ginf/c3'], $version);
+    wp_enqueue_style('ginf/lrs-statistics', plugin_dir_url(__FILE__) . '../public/css/lrs-statistics.css', ['ginf/c3'], $version);
+
+    wp_localize_script('ginf/lrs-statistics', 'ginfLrsStatistics', [
+      'statements' => $this->lrs_statement_statistics_data(),
+      'requests' => $this->lrs_http_requests_statistics_data(),
+    ]);
+
+    include __DIR__ . '/pages/page-lrs-statistics.php';
+  }
+
+  /**
+   * Returns data on statements being sent or unsent (only codes 200 and 400 are considered not to get duplicates)
+   *
+   * @return array An array of objects with code, message and total properties
+   */
+  public function lrs_statement_statistics_data() {
+    static $stats;
+
+    if (isset($stats)) {
+      return $stats;
+    }
+
+    global $wpdb;
+
+    $stats = $wpdb->get_results("SELECT t1.code, (SELECT t2.message FROM {$wpdb->base_prefix}ginf_xapi_http_log t2 WHERE t1.code = t2.code LIMIT 1) AS message, SUM(t1.statements_count) AS total FROM {$wpdb->base_prefix}ginf_xapi_http_log t1 WHERE t1.code = 200 OR t1.code = 400 GROUP BY code");
+
+    return $stats;
+  }
+
+  /**
+   * Returns data on LRS HTTP Requests statistics
+   *
+   * @return array An array of objects with code, message and total properties
+   */
+  public function lrs_http_requests_statistics_data() {
+    static $stats;
+
+    if (isset($stats)) {
+      return $stats;
+    }
+
+    global $wpdb;
+
+    $stats = $wpdb->get_results("SELECT t1.code, (SELECT t2.message FROM {$wpdb->base_prefix}ginf_xapi_http_log t2 WHERE t1.code = t2.code LIMIT 1) AS message, count(*) AS total FROM {$wpdb->base_prefix}ginf_xapi_http_log t1 GROUP BY code");
+
+    return $stats;
   }
 }

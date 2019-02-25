@@ -138,6 +138,10 @@ class GINF_Plugin {
       'methods' => WP_REST_Server::CREATABLE,
       'callback' => [$this, 'rest_xapi_statements'],
     ]);
+    register_rest_route( 'ginf/v1', '/xapi/connection/test', [
+      'methods' => WP_REST_Server::CREATABLE,
+      'callback' => [$this, 'rest_xapi_connection_test'],
+    ]);
   }
 
   /**
@@ -177,6 +181,56 @@ class GINF_Plugin {
     }
 
     return new WP_REST_Response($statement, 200);
+  }
+
+  /**
+   * REST API LRS connection test
+   * @param  WP_REST_Request $request Request object
+   * @return WP_REST_Response
+   */
+  public function rest_xapi_connection_test($request) {
+    if (!current_user_can('manage_network_options')) {
+      return new WP_REST_Response(['message' => 'Forbidden'], 403);
+    }
+
+    if (!wp_verify_nonce($request->get_header('X-WP-Nonce'), 'wp_rest'))
+    {
+      return new WP_REST_Response(['message' => 'Forbidden'], 403);
+    }
+
+    $endpoint = $request->get_param('endpoint');
+    $key = $request->get_param('key');
+    $secret = $request->get_param('secret');
+
+    if (!($endpoint && $key && $secret)) {
+      return new WP_REST_Response(['message' => 'Bad Request'], 400);
+    }
+
+    $auth = base64_encode("$key:$secret");
+    $data = json_encode([]);
+
+    // TODO A standalone method is needed, to be used in both cases
+    $response = wp_remote_request($endpoint . '/statements', [
+      'method' => 'POST',
+      'timeout' => 45,
+      'headers' => [
+        'Content-Type' => 'application/json',
+        'X-Experience-API-Version' => '1.0.1',
+        'Authorization' => "Basic $auth",
+        'Content-Length' => strlen($data),
+      ],
+      'body' => $data,
+    ]);
+
+    if (is_wp_error($response)) {
+      $code = $response->get_error_code();
+      $message = $response->get_error_message();
+    } else {
+      $code = (int)wp_remote_retrieve_response_code($response);
+      $message = wp_remote_retrieve_response_message($response);
+    }
+
+    return new WP_REST_Response(['response' => ['code' => $code, 'message' => $message]], 200);
   }
 
   /**
@@ -230,12 +284,10 @@ class GINF_Plugin {
       updated_at TIMESTAMP NOT NULL DEFAULT 0,
       statements LONGTEXT NOT NULL,
       statements_count SMALLINT UNSIGNED NOT NULL,
-      retries SMALLINT UNSIGNED NOT NULL DEFAULT 0,
       PRIMARY KEY  (id),
       KEY created_at (created_at),
       KEY updated_at (created_at),
-      KEY statements_count (statements_count),
-      KEY retries (retries)
+      KEY statements_count (statements_count)
     ) {$charset};");
     dbDelta("CREATE TABLE {$wpdb->base_prefix}ginf_xapi_http_log (
       code SMALLINT DEFAULT NULL,
@@ -255,7 +307,7 @@ class GINF_Plugin {
    * @return bool TRUE if main site, FALSE otherwise
    */
   private function can_run_cron_jobs() {
-    get_current_blog_id() === 1;
+    return get_current_blog_id() === 1;
   }
 
   /**
@@ -316,7 +368,7 @@ class GINF_Plugin {
    * @param int    $count      Number of statements
    * @param string $statements JSON-encoded array of statements
    */
-  private function add_to_http_log(int $code, string $message, int $count, string $statements) {
+  private function add_to_http_log(int $code, string $message, int $count, string $statements = '') {
     global $wpdb;
 
     return $wpdb->insert("{$wpdb->base_prefix}ginf_xapi_http_log", [
@@ -342,7 +394,9 @@ class GINF_Plugin {
   private function send_batch_to_lrs(string $url, string $auth, int $start, int $allowed) {
     if (time() - $start >= $allowed) return;
 
-    $batch = $wpdb->get_row("SELECT id, statements, statements_count, retries FROM {$wpdb->base_prefix}ginf_xapi_batches ORDER BY created_at ASC");
+    global $wpdb;
+
+    $batch = $wpdb->get_row("SELECT id, statements, statements_count FROM {$wpdb->base_prefix}ginf_xapi_batches ORDER BY created_at ASC");
 
     if (NULL === $batch) return;
 
@@ -359,30 +413,23 @@ class GINF_Plugin {
     ]);
 
     if (is_wp_error($response)) {
-      $this->add_to_http_log(NULL, $response->getMessage(), $batch->statements_count);
+      $this->add_to_http_log(NULL, $response->get_error_message(), $batch->statements_count);
     } else {
       $code = (int)wp_remote_retrieve_response_code($response);
       $message = wp_remote_retrieve_response_message($response);
 
       if ($code === 200) {
         $this->delete_batch($batch->id);
-        $this->add_to_http_log($code, $messge, $batch->statements_count);
+        $this->add_to_http_log($code, $message, $batch->statements_count);
       } else if ($code === 400) {
         $this->delete_batch($batch->id);
         $this->add_to_http_log($code, $message, $batch->statements_count, $batch->statements);
       } else if ($code === 401) {
-        $wpdb->insert("{$wpdb->base_prefix}ginf_xapi_http_log", [
-          'code' => $code,
-          'message' => $message,
-          'created_at' => current_time('mysql'),
-          'statements_count' => $batch->statements_count,
-        ], [
-          '%d', '%s', '%s', '%d'
-        ]);
-        return;
-      } else {
         $this->add_to_http_log($code, $messge, $batch->statements_count);
         return;
+      } else {
+        // XXX Need to determine what is covered by this case
+        $this->add_to_http_log($code, $messge, $batch->statements_count);
       }
     }
 
@@ -393,13 +440,12 @@ class GINF_Plugin {
    * Processes batches and sends the data to LRS
    */
   public function process_xapi_batches() {
-    return; // XXX Safeguard until the code is tested
     if (!$this->can_run_cron_jobs()) return;
 
     global $wpdb;
 
     $count = $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->base_prefix}ginf_xapi_batches");
-    // TODO Need to make sure that the procss will be running for no more than an hour or so
+
     if ($count > 0) {
       $endpoint = get_site_option('ginf_lrs_xapi_endpoint');
       $key = get_site_option('ginf_lrs_key');
