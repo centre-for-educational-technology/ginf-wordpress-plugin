@@ -8,7 +8,7 @@ class GINF_Plugin {
    * Plugin version for cache busting and database updates.
    * @var string
    */
-  const VERSION = '0.2.0';
+  const VERSION = '0.3.0';
 
   /**
    * Instance of this class
