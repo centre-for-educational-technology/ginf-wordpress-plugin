@@ -206,21 +206,9 @@ class GINF_Plugin {
       return new WP_REST_Response(['message' => 'Bad Request'], 400);
     }
 
-    $auth = base64_encode("$key:$secret");
     $data = json_encode([]);
 
-    // TODO A standalone method is needed, to be used in both cases
-    $response = wp_remote_request($endpoint . '/statements', [
-      'method' => 'POST',
-      'timeout' => 45,
-      'headers' => [
-        'Content-Type' => 'application/json',
-        'X-Experience-API-Version' => '1.0.1',
-        'Authorization' => "Basic $auth",
-        'Content-Length' => strlen($data),
-      ],
-      'body' => $data,
-    ]);
+    $response = $this->send_statements_to_lrs($endpoint, $key, $secret, $data);
 
     if (is_wp_error($response)) {
       $code = $response->get_error_code();
@@ -277,7 +265,6 @@ class GINF_Plugin {
       KEY created_at (created_at),
       KEY updated_at (created_at)
     ) {$charset};");
-
     dbDelta("CREATE TABLE {$wpdb->base_prefix}ginf_xapi_batches (
       id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
       created_at TIMESTAMP NOT NULL DEFAULT 0,
@@ -383,15 +370,40 @@ class GINF_Plugin {
   }
 
   /**
+   * Sends statements to LRS xAPI endpoint
+   * @param  string $endpoint   LRS xAPI ednpoint base URL
+   * @param  string $key        Auth key
+   * @param  string $secret     Auth secret
+   * @param  string $statements JSON-encoded array of statements
+   * @return WP_Error|array     The response or WP_Error on failure
+   */
+  private function send_statements_to_lrs(string $endpoint, string $key, string $secret, string $statements) {
+    $auth = base64_encode("$key:$secret");
+
+    return wp_remote_request($endpoint . '/statements', [
+      'method' => 'POST',
+      'timeout' => 45,
+      'headers' => [
+        'Content-Type' => 'application/json',
+        'X-Experience-API-Version' => '1.0.1',
+        'Authorization' => "Basic $auth",
+        'Content-Length' => strlen($statements),
+      ],
+      'body' => $statements,
+    ]);
+  }
+
+  /**
    * Sends next batch to the LRS if run time limit has not been exceeded and next batch exists.
    * Will recursively call itself until conditions prevent that from happening
-   * @param  string $url     URL to the LRS xAPI statements endpoint
-   * @param  string $auth    Basic auth token
-   * @param  int    $start   Timestamp when process began
-   * @param  int    $allowed Allowed time to run in seconds
+   * @param  string $endpoint URL to the LRS xAPI general endpoint
+   * @param  string $key      Auth key
+   * @param  string $secret   Auth secret
+   * @param  int    $start    Timestamp when process began
+   * @param  int    $allowed  Allowed time to run in seconds
    * @return void
    */
-  private function send_batch_to_lrs(string $url, string $auth, int $start, int $allowed) {
+  private function send_batch_to_lrs(string $endpoint, string $key, string $secret, int $start, int $allowed) {
     if (time() - $start >= $allowed) return;
 
     global $wpdb;
@@ -400,17 +412,7 @@ class GINF_Plugin {
 
     if (NULL === $batch) return;
 
-    $response = wp_remote_request($url, [
-      'method' => 'POST',
-      'timeout' => 45,
-      'headers' => [
-        'Content-Type' => 'application/json',
-        'X-Experience-API-Version' => '1.0.1',
-        'Authorization' => "Basic $auth",
-        'Content-Length' => strlen($batch->statements),
-      ],
-      'body' => $batch->statements,
-    ]);
+    $response = $this->send_statements_to_lrs($endpoint, $key, $secret, $batch->statements);
 
     if (is_wp_error($response)) {
       $this->add_to_http_log(NULL, $response->get_error_message(), $batch->statements_count);
@@ -433,7 +435,7 @@ class GINF_Plugin {
       }
     }
 
-    $this->send_batch_to_lrs($url, $auth, $start, $allowed);
+    $this->send_batch_to_lrs($endpoint, $key, $secret, $start, $allowed);
   }
 
   /**
@@ -454,13 +456,10 @@ class GINF_Plugin {
         return;
       }
 
-      $url = get_site_option('ginf_lrs_xapi_endpoint') . '/statements';
-      $auth = base64_encode("$key:$secret");
-
       $start = time();
       $allowed = 50 * 60;
 
-      $this->send_batch_to_lrs($url, $auth, $start, $allowed);
+      $this->send_batch_to_lrs($endpoint, $key, $secret, $start, $allowed);
     }
   }
 }
