@@ -16,7 +16,7 @@ $requests = $admin->lrs_http_requests_statistics_data();
         <tr>
           <th><?php _e('Code', 'ginf'); ?></th>
           <th><?php _e('Reason', 'ginf'); ?></th>
-          <th><?php _e('Total', 'ginf'); ?></th>
+          <th><?php _e('Total (statements)', 'ginf'); ?></th>
         </tr>
       </thead>
       <tbody>

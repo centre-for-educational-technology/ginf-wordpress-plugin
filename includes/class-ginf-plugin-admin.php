@@ -189,7 +189,7 @@ class GINF_Plugin_Admin {
 
     global $wpdb;
 
-    $stats = $wpdb->get_results("SELECT t1.code, (SELECT t2.message FROM {$wpdb->base_prefix}ginf_xapi_http_log t2 WHERE t1.code = t2.code LIMIT 1) AS message, count(*) AS total FROM {$wpdb->base_prefix}ginf_xapi_http_log t1 GROUP BY code");
+    $stats = $wpdb->get_results("SELECT t1.code, (SELECT t2.message FROM {$wpdb->base_prefix}ginf_xapi_http_log t2 WHERE t1.code = t2.code LIMIT 1) AS message, COUNT(*) AS total FROM {$wpdb->base_prefix}ginf_xapi_http_log t1 GROUP BY code");
 
     return $stats;
   }
