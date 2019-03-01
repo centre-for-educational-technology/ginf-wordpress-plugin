@@ -1,7 +1,7 @@
 
 {
   "name": "ginf",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "main": "Gruntfile.js",
   "author": "HTK",
   "devDependencies": {

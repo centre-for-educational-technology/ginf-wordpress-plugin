@@ -8,7 +8,7 @@ class GINF_Plugin {
    * Plugin version for cache busting and database updates.
    * @var string
    */
-  const VERSION = '0.3.0';
+  const VERSION = '0.3.1';
 
   /**
    * Instance of this class
@@ -222,6 +222,25 @@ class GINF_Plugin {
   }
 
   /**
+   * Splits server version into parts (semver format is required)
+   * @param  stirng $version Version number according to semantic versioning
+   * @return object|FALSE    Either object with major, minor, patch or FALSE
+   */
+  private static function split_version($version) {
+    $parts = explode('.', $version);
+
+    if (count($parts) !== 3) {
+      return FALSE;
+    }
+
+    return (object) array(
+      'major' => (int) $parts[0],
+      'minor' => (int) $parts[1],
+      'patch' => (int) $parts[2]
+    );
+  }
+
+  /**
    * Checks for and applies database updates based on current plugin version
    */
   public static function check_for_updates() {
@@ -235,7 +254,16 @@ class GINF_Plugin {
       $current_version = '0.0.0';
     }
 
+    $version = self::split_version($current_version);
+
     self::update_database();
+
+    // Schedule cron job if version below 0.3.1
+    if ($version->major <= 0 && $version->minor <= 3 && $version->patch < 1) {
+      if (!wp_next_scheduled('ginf_process_xapi_statements')) {
+        wp_schedule_event(time(), 'hourly', 'ginf_process_xapi_statements');
+      }
+    }
 
     if ($current_version === '0.0.0') {
       add_option('ginf_version', self::VERSION);

@@ -4,7 +4,7 @@ Donate link:
 Tags: pressbooks, h5p, xapi, lrs, plugin
 Requires at least: 4.9
 Tested up to: 4.9.9
-Stable tag: 0.3.0
+Stable tag: 0.3.1
 License: MIT
 License URI: http://opensource.org/licenses/MIT
 
@@ -50,3 +50,6 @@ statement collection.
 = 0.3.0 =
 Fully implemented LRS integration and handling of H5P xAPI statements, simple
 statistics dashboard for HTTP request and statement counts
+
+= 0.3.1 =
+Makes sure cron job is registered within migration process
