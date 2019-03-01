@@ -7,7 +7,7 @@
 					 method: 'POST',
 					 url: H5PIntegration.baseUrl + '/wp-json/ginf/v1/xapi/statements/',
 					 data: {
-						 statement: event.data.statement
+						 statement: JSON.stringify(event.data.statement)
 					 },
 					 beforeSend: function ( xhr ) {
 						 xhr.setRequestHeader( 'X-WP-Nonce', $(document).find('meta[name="api_nonce"]').attr('content') );

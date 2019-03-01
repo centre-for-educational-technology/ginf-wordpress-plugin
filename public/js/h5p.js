@@ -8,7 +8,7 @@
 					 method: 'POST',
 					 url: ginf_h5p_rest_object.api_url + 'xapi/statements/',
 					 data: {
-						 statement: event.data.statement
+						 statement: JSON.stringify(event.data.statement)
 					 },
 					 beforeSend: function ( xhr ) {
 						 xhr.setRequestHeader( 'X-WP-Nonce', ginf_h5p_rest_object.api_nonce );

@@ -163,6 +163,8 @@ class GINF_Plugin {
       return new WP_REST_Response(['message' => 'Bad Request'], 400);
     }
 
+    $statement = json_decode($statement, TRUE);
+
     $statement['timestamp'] = date(DATE_RFC3339);
 
     $time = current_time('mysql');
@@ -326,6 +328,32 @@ class GINF_Plugin {
   }
 
   /**
+   * Fixes numerical and boolean values that were converted to a string due to a bug.
+   * The fixes are currently being made for the "result" data
+   * @param  array $statement Statement
+   * @return array            Statement with fixed numerical and boolean values
+   */
+  private static function fix_statement($statement) {
+    // TODO Might make sure that only old statement get fixed
+    if (isset($statement['result'])) {
+      if (isset($statement['result']['completion']) && !is_bool($statement['result']['completion'])) {
+        $statement['result']['completion'] = ($statement['result']['completion'] == 'true') ? TRUE : FALSE;
+      }
+      if (isset($statement['result']['success']) && !is_bool($statement['result']['success'])) {
+        $statement['result']['success'] = ($statement['result']['success'] == 'true') ? TRUE : FALSE;
+      }
+      if (isset($statement['result']['score'])) {
+        $statement['result']['score']['min'] = (float) $statement['result']['score']['min'];
+        $statement['result']['score']['max'] = (float) $statement['result']['score']['max'];
+        $statement['result']['score']['raw'] = (float) $statement['result']['score']['raw'];
+        $statement['result']['score']['scaled'] = (float) $statement['result']['score']['scaled'];
+      }
+    }
+
+    return $statement;
+  }
+
+  /**
    * Processes statements and creates batches
    */
   public function process_xapi_statements() {
@@ -342,25 +370,25 @@ class GINF_Plugin {
     if ($count > 0) {
       $batches = ceil($count / $size);
 
-      foreach(range(1, $size) as $batch) {
+      foreach(range(1, $batches) as $batch) {
         $statements = $wpdb->get_results("SELECT id, statement FROM {$wpdb->base_prefix}ginf_xapi_statements ORDER BY created_at ASC LIMIT $size");
         $ids = [];
         $data = [];
         foreach ($statements as $statement) {
           $ids[] = $statement->id;
-          $data[] = json_decode($statement->statement);
-          $time = current_time('mysql');
-          $wpdb->insert("{$wpdb->base_prefix}ginf_xapi_batches", [
-            'created_at' => $time,
-            'updated_at' => $time,
-            'statements' => json_encode($data),
-            'statements_count' => sizeof($data),
-          ], [
-            '%s', '%s', '%s', '%d'
-          ]);
-          $in = implode(',', array_map('intval', $ids)); // TODO See if INTVAL is even needed as data is being fetched directly from the database
-          $wpdb->query("DELETE FROM {$wpdb->base_prefix}ginf_xapi_statements WHERE id IN ($in)");
+          $data[] = $this->fix_statement(json_decode($statement->statement, TRUE)); // TODO See if it would make sense to write a migration instead
         }
+        $time = current_time('mysql');
+        $wpdb->insert("{$wpdb->base_prefix}ginf_xapi_batches", [
+          'created_at' => $time,
+          'updated_at' => $time,
+          'statements' => json_encode($data),
+          'statements_count' => sizeof($data),
+        ], [
+          '%s', '%s', '%s', '%d'
+        ]);
+        $in = implode(',', array_map('intval', $ids)); // TODO See if INTVAL is even needed as data is being fetched directly from the database
+        $wpdb->query("DELETE FROM {$wpdb->base_prefix}ginf_xapi_statements WHERE id IN ($in)");
       }
     }
   }
