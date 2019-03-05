@@ -479,7 +479,7 @@ class GINF_Plugin {
     $response = $this->send_statements_to_lrs($endpoint, $key, $secret, $batch->statements);
 
     if (is_wp_error($response)) {
-      $this->add_to_http_log(NULL, $response->get_error_message(), $batch->statements_count);
+      $this->add_to_http_log(0, $response->get_error_message(), $batch->statements_count);
     } else {
       $code = (int)wp_remote_retrieve_response_code($response);
       $message = wp_remote_retrieve_response_message($response);
