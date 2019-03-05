@@ -8,7 +8,7 @@ class GINF_Plugin {
    * Plugin version for cache busting and database updates.
    * @var string
    */
-  const VERSION = '0.3.1';
+  const VERSION = '0.3.2';
 
   /**
    * Instance of this class
@@ -343,10 +343,18 @@ class GINF_Plugin {
         $statement['result']['success'] = ($statement['result']['success'] == 'true') ? TRUE : FALSE;
       }
       if (isset($statement['result']['score'])) {
-        $statement['result']['score']['min'] = (float) $statement['result']['score']['min'];
-        $statement['result']['score']['max'] = (float) $statement['result']['score']['max'];
-        $statement['result']['score']['raw'] = (float) $statement['result']['score']['raw'];
-        $statement['result']['score']['scaled'] = (float) $statement['result']['score']['scaled'];
+        if (isset($statement['result']['score']['min'])) {
+          $statement['result']['score']['min'] = (float) $statement['result']['score']['min'];
+        }
+        if (isset($statement['result']['score']['max'])) {
+          $statement['result']['score']['max'] = (float) $statement['result']['score']['max'];
+        }
+        if (isset($statement['result']['score']['raw'])) {
+          $statement['result']['score']['raw'] = (float) $statement['result']['score']['raw'];
+        }
+        if (isset($statement['result']['score']['scaled'])) {
+          $statement['result']['score']['scaled'] = (float) $statement['result']['score']['scaled'];
+        }
       }
     }
 

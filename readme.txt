@@ -4,7 +4,7 @@ Donate link:
 Tags: pressbooks, h5p, xapi, lrs, plugin
 Requires at least: 4.9
 Tested up to: 4.9.9
-Stable tag: 0.3.1
+Stable tag: 0.3.2
 License: MIT
 License URI: http://opensource.org/licenses/MIT
 
@@ -53,3 +53,8 @@ statistics dashboard for HTTP request and statement counts
 
 = 0.3.1 =
 Makes sure cron job is registered within migration process
+
+= 0.3.2 =
+Fixed issues with batch cron job code logic, statement AJAX call turning boolean
+and numerical values into strings. Added a fix method to deal with malformed
+statements.
