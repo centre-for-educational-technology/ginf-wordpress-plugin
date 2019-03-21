@@ -18,6 +18,7 @@ class GINF_Plugin_Admin {
     add_action('admin_enqueue_scripts', [$this, 'enqueue_styles_and_scripts']);
     add_action('h5p_alter_library_scripts', [$this, 'h5p_alter_library_scripts'], 10, 3);
     add_action('h5p_alter_library_styles', [$this, 'h5p_alter_library_styles'], 10, 3);
+    add_action('h5p_additional_embed_head_tags', [$this, 'h5p_additional_embed_head_tags'], 10, 3);
     add_filter('http_request_args', [$this, 'http_request_args'], 999, 2);
     add_action('network_admin_menu', [$this, 'network_admin_menu']);
     add_action('network_admin_edit_ginf_lrs_settings',  [$this, 'lrs_save_settings'], 10, 0);
@@ -57,6 +58,34 @@ class GINF_Plugin_Admin {
   }
 
   /**
+   * Returns data structure that mimics the Enlighter module config.
+   *
+   * @return array Config data structure
+   */
+  private function enlighter_js_config() {
+    return [
+      'selector' => [
+        'block' => get_option('enlighter-selector', 'pre.EnlighterJSRAW'),
+        'inline' => get_option('enlighter-selectorInline', 'code.EnlighterJSRAW'),
+      ],
+      'language' => get_option('enlighter-defaultLanguage', 'generic'),
+      'theme' => get_option('enlighter-defaultTheme', 'enlighter'),
+      'indent' => intval(get_option('enlighter-indent', 2)),
+      'hover' => ( (bool)get_option('enlighter-hoverClass', 1) ) ? 'hoverEnabled' : NULL,
+      'showLinenumbers' => (bool)get_option('enlighter-linenumbers', 1),
+      'rawButton' => (bool)get_option('enlighter-rawButton', 1),
+      'infoButton' => (bool)get_option('enlighter-infoButton', 1),
+      'windowButton' => (bool)get_option('enlighter-windowButton', 1),
+      'rawcodeDoubleclick' => (bool)get_option('enlighter-rawcodeDoubleclick', ''),
+      'grouping' => TRUE,
+      'cryptex' => [
+        'enabled' => (bool)get_option('enlighter-cryptexEnabled', ''),
+        'email' => get_option('enlighter-cryptexFallbackEmail', 'mail@example.tld'),
+      ],
+    ];
+  }
+
+  /**
    * Enqueue any scripts and/or styles
    */
   public function enqueue_styles_and_scripts($hook) {
@@ -64,29 +93,8 @@ class GINF_Plugin_Admin {
 
     // This one is required because EnlighterJS_Config is not available within an admin context
     if ('toplevel_page_h5p' === $hook && $this->is_enlighter_active()) {
-      $config = [
-        'selector' => [
-          'block' => get_option('enlighter-selector', 'pre.EnlighterJSRAW'),
-          'inline' => get_option('enlighter-selectorInline', 'code.EnlighterJSRAW'),
-        ],
-        'language' => get_option('enlighter-defaultLanguage', 'generic'),
-        'theme' => get_option('enlighter-defaultTheme', 'enlighter'),
-        'indent' => intval(get_option('enlighter-indent', 2)),
-        'hover' => ( (bool)get_option('enlighter-hoverClass', 1) ) ? 'hoverEnabled' : NULL,
-        'showLinenumbers' => (bool)get_option('enlighter-linenumbers', 1),
-        'rawButton' => (bool)get_option('enlighter-rawButton', 1),
-        'infoButton' => (bool)get_option('enlighter-infoButton', 1),
-        'windowButton' => (bool)get_option('enlighter-windowButton', 1),
-        'rawcodeDoubleclick' => (bool)get_option('enlighter-rawcodeDoubleclick', ''),
-        'grouping' => TRUE,
-        'cryptex' => [
-          'enabled' => (bool)get_option('enlighter-cryptexEnabled', ''),
-          'email' => get_option('enlighter-cryptexFallbackEmail', 'mail@example.tld'),
-        ],
-      ];
-
       wp_enqueue_script('ginf/enlighter-config', GINF_PLUGIN_URL . 'public/js/enlighter-config.js', ['jquery'], $version);
-      wp_localize_script('ginf/enlighter-config', 'GINF_EnlighterJS_Config', $config);
+      wp_localize_script('ginf/enlighter-config', 'GINF_EnlighterJS_Config', $this->enlighter_js_config());
     }
   }
 
@@ -116,6 +124,23 @@ class GINF_Plugin_Admin {
           'version' => '?ver=' . $version,
         ];
       }
+    } else if ($embed_type === 'external') {
+      $scripts[] = (object) [
+        'path' => GINF_PLUGIN_URL . 'public/js/embed-enlighter-config.js',
+        'version' => '?ver=' . $version,
+      ];
+      $scripts[] = (object) [
+        'path' => ENLIGHTER_PLUGIN_URL . 'resources/mootools-core-yc.js',
+        'version' => '?ver=' . ENLIGHTER_VERSION,
+      ];
+      $scripts[] = (object) [
+        'path' => ENLIGHTER_PLUGIN_URL . 'resources/EnlighterJS.min.js',
+        'version' => '?ver=' . ENLIGHTER_VERSION,
+      ];
+      $scripts[] = (object) [
+        'path' => GINF_PLUGIN_URL . 'public/js/enlighter.js',
+        'version' => '?ver=' . $version,
+      ];
     }
   }
 
@@ -123,7 +148,7 @@ class GINF_Plugin_Admin {
    * Implements h5p_alter_library_scripts action
    */
   public function h5p_alter_library_styles(&$scripts, $libraries, $embed_type) {
-     if ($embed_type === 'iframe') {
+     if ($embed_type === 'iframe' || $embed_type === 'external') {
        if ($this->is_enlighter_active()) {
          $scripts[] = (object) [
            'path' => GINF_PLUGIN_URL . 'public/css/enlighter.css',
@@ -134,6 +159,15 @@ class GINF_Plugin_Admin {
           'version' => '?ver=' . ENLIGHTER_VERSION,
         ];
        }
+    }
+  }
+
+  /**
+   * Implements h5p_additional_embed_head_tags action
+   */
+  public function h5p_additional_embed_head_tags(&$tags) {
+    if ($this->is_enlighter_active()) {
+      $tags[] = '<meta name="ginf_enlighter_config" content="' . base64_encode( json_encode( $this->enlighter_js_config() ) ) . '">';
     }
   }
 

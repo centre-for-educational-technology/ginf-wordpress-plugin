@@ -4,7 +4,7 @@ Donate link:
 Tags: pressbooks, h5p, xapi, lrs, enlighter, plugin
 Requires at least: 4.9
 Tested up to: 4.9.10
-Stable tag: 0.4.0
+Stable tag: 0.4.1
 License: MIT
 License URI: http://opensource.org/licenses/MIT
 
@@ -66,3 +66,6 @@ Enlighter.js is also applied to the H5P content. Added a plugin that integrates
 with CKEditor and allows inserting code. Expects "enlighter" plugin to be
 present and activated (uses constants and JS + CSS files from it). Will make the
 necessary check and only activate functionality if the check succeeds.
+
+= 0.4.1 =
+Added Enlighter enhancement to embed (external) view.

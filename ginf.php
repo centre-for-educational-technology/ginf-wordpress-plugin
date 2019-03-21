@@ -9,7 +9,7 @@
  * Domain Path:     /languages
  * License:         MIT
  * License URI:     http://opensource.org/licenses/MIT
- * Version:         0.4.0
+ * Version:         0.4.1
  *
  * @package         GINF
  */
