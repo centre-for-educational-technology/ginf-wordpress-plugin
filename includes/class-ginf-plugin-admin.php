@@ -17,6 +17,7 @@ class GINF_Plugin_Admin {
   private function __construct() {
     add_action('admin_enqueue_scripts', [$this, 'enqueue_styles_and_scripts']);
     add_action('h5p_alter_library_scripts', [$this, 'h5p_alter_library_scripts'], 10, 3);
+    add_action('h5p_alter_library_styles', [$this, 'h5p_alter_library_styles'], 10, 3);
     add_filter('http_request_args', [$this, 'http_request_args'], 999, 2);
     add_action('network_admin_menu', [$this, 'network_admin_menu']);
     add_action('network_admin_edit_ginf_lrs_settings',  [$this, 'lrs_save_settings'], 10, 0);
@@ -42,27 +43,97 @@ class GINF_Plugin_Admin {
    * @return string Plugin version
    */
   public static function get_version() {
-    return GINF_Plugin:: VERSION;
+    return GINF_Plugin::VERSION;
+  }
+
+  /**
+   * Determines if Enlighter plugin is active by calling a method from the
+   * GINF_Plugin class.
+   *
+   * @return boolean
+   */
+  public function is_enlighter_active() {
+    return GINF_Plugin::get_instance()->is_enlighter_active();
   }
 
   /**
    * Enqueue any scripts and/or styles
    */
-  public function enqueue_styles_and_scripts() {
+  public function enqueue_styles_and_scripts($hook) {
     $version = self::get_version();
 
-    //wp_enqueue_script('ginf/h5p/ckeditor/extraplugins', plugin_dir_url(__FILE__) . '../public/js/h5p-editor.js', [], $version);
+    // This one is required because EnlighterJS_Config is not available within an admin context
+    if ('toplevel_page_h5p' === $hook && $this->is_enlighter_active()) {
+      $config = [
+        'selector' => [
+          'block' => get_option('enlighter-selector', 'pre.EnlighterJSRAW'),
+          'inline' => get_option('enlighter-selectorInline', 'code.EnlighterJSRAW'),
+        ],
+        'language' => get_option('enlighter-defaultLanguage', 'generic'),
+        'theme' => get_option('enlighter-defaultTheme', 'enlighter'),
+        'indent' => intval(get_option('enlighter-indent', 2)),
+        'hover' => ( (bool)get_option('enlighter-hoverClass', 1) ) ? 'hoverEnabled' : NULL,
+        'showLinenumbers' => (bool)get_option('enlighter-linenumbers', 1),
+        'rawButton' => (bool)get_option('enlighter-rawButton', 1),
+        'infoButton' => (bool)get_option('enlighter-infoButton', 1),
+        'windowButton' => (bool)get_option('enlighter-windowButton', 1),
+        'rawcodeDoubleclick' => (bool)get_option('enlighter-rawcodeDoubleclick', ''),
+        'grouping' => TRUE,
+        'cryptex' => [
+          'enabled' => (bool)get_option('enlighter-cryptexEnabled', ''),
+          'email' => get_option('enlighter-cryptexFallbackEmail', 'mail@example.tld'),
+        ],
+      ];
+
+      wp_enqueue_script('ginf/enlighter-config', GINF_PLUGIN_URL . 'public/js/enlighter-config.js', ['jquery'], $version);
+      wp_localize_script('ginf/enlighter-config', 'GINF_EnlighterJS_Config', $config);
+    }
   }
 
   /**
    * Implements h5p_alter_library_scripts action
    */
   public function h5p_alter_library_scripts(&$scripts, $libraries, $embed_type) {
-     if ($embed_type === 'editor') {
-      /*$scripts[] = (object) [
-        'path' => plugin_dir_url(__FILE__) . '../public/ckeditor/extraplugins.js',
-        'version' => '?ver=' . GINF_Plugin::VERSION
-      ];*/
+    $version = self::get_version();
+
+    if ($embed_type === 'editor') {
+      $scripts[] = (object) [
+        'path' => GINF_PLUGIN_URL . 'public/ckeditor/extraplugins.js',
+        'version' => '?ver=' . $version,
+      ];
+    } else if ($embed_type === 'iframe') {
+      if ($this->is_enlighter_active()) {
+        $scripts[] = (object) [
+          'path' => ENLIGHTER_PLUGIN_URL . 'resources/mootools-core-yc.js',
+          'version' => '?ver=' . ENLIGHTER_VERSION,
+        ];
+        $scripts[] = (object) [
+          'path' => ENLIGHTER_PLUGIN_URL . 'resources/EnlighterJS.min.js',
+          'version' => '?ver=' . ENLIGHTER_VERSION,
+        ];
+        $scripts[] = (object) [
+          'path' => GINF_PLUGIN_URL . 'public/js/enlighter.js',
+          'version' => '?ver=' . $version,
+        ];
+      }
+    }
+  }
+
+  /**
+   * Implements h5p_alter_library_scripts action
+   */
+  public function h5p_alter_library_styles(&$scripts, $libraries, $embed_type) {
+     if ($embed_type === 'iframe') {
+       if ($this->is_enlighter_active()) {
+         $scripts[] = (object) [
+           'path' => GINF_PLUGIN_URL . 'public/css/enlighter.css',
+           'version' => '?ver=' . ENLIGHTER_VERSION,
+         ];
+        $scripts[] = (object) [
+          'path' => ENLIGHTER_PLUGIN_URL . 'resources/EnlighterJS.min.css',
+          'version' => '?ver=' . ENLIGHTER_VERSION,
+        ];
+       }
     }
   }
 
@@ -107,7 +178,7 @@ class GINF_Plugin_Admin {
   public function lrs_settings_page() {
     $version = self::get_version();
 
-    wp_enqueue_script('ginf/lrs-settings', plugin_dir_url(__FILE__) . '../public/js/lrs-settings.js', ['jquery'], $version);
+    wp_enqueue_script('ginf/lrs-settings', GINF_PLUGIN_URL . 'public/js/lrs-settings.js', ['jquery'], $version);
     wp_localize_script('ginf/lrs-settings', 'ginf_h5p_rest_object',
     [
       'api_nonce' => wp_create_nonce( 'wp_rest' ),
@@ -145,8 +216,8 @@ class GINF_Plugin_Admin {
     wp_register_script('ginf/c3', '//cdnjs.cloudflare.com/ajax/libs/c3/0.6.12/c3.min.js', ['ginf/d3'], $version);
     wp_register_style('ginf/c3', '//cdnjs.cloudflare.com/ajax/libs/c3/0.6.12/c3.min.css', [], $version);
 
-    wp_enqueue_script('ginf/lrs-statistics', plugin_dir_url(__FILE__) . '../public/js/lrs-statistics.js', ['jquery', 'ginf/c3'], $version);
-    wp_enqueue_style('ginf/lrs-statistics', plugin_dir_url(__FILE__) . '../public/css/lrs-statistics.css', ['ginf/c3'], $version);
+    wp_enqueue_script('ginf/lrs-statistics', GINF_PLUGIN_URL . 'public/js/lrs-statistics.js', ['jquery', 'ginf/c3'], $version);
+    wp_enqueue_style('ginf/lrs-statistics', GINF_PLUGIN_URL . 'public/css/lrs-statistics.css', ['ginf/c3'], $version);
 
     wp_localize_script('ginf/lrs-statistics', 'ginfLrsStatistics', [
       'statements' => $this->lrs_statement_statistics_data(),

@@ -9,7 +9,7 @@
  * Domain Path:     /languages
  * License:         MIT
  * License URI:     http://opensource.org/licenses/MIT
- * Version:         0.3.2
+ * Version:         0.4.0
  *
  * @package         GINF
  */
@@ -18,6 +18,8 @@
 if ( ! defined( 'WPINC' ) ) {
   die;
 }
+
+DEFINE('GINF_PLUGIN_URL', plugin_dir_url(__FILE__));
 
 require_once plugin_dir_path(__FILE__) . 'includes/class-ginf-plugin.php';
 require_once plugin_dir_path(__FILE__) . 'includes/class-ginf-plugin-admin.php';

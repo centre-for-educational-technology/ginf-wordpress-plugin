@@ -22,5 +22,9 @@
 				 });
 			 });
 		 }
+
+		 if (window.H5PIntegration && window.EnlighterJS_Config) {
+			 window.H5PIntegration.EnlighterJS_Config = window.EnlighterJS_Config;
+		 }
    });
 })( jQuery );

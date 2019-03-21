@@ -18,6 +18,10 @@ div.enlighterEnlighterJSWrapper.EnlighterJSWrapper ol.enlighterEnlighterJS.Enlig
   line-height: 135%;
 }
 
+.h5p-fullscreen div.enlighterEnlighterJSWrapper.EnlighterJSWrapper ol.enlighterEnlighterJS.EnlighterJS li {
+  margin-left: 80px;
+}
+
 div.enlighterEnlighterJSWrapper.EnlighterJSWrapper span, div.enlighterEnlighterJSWrapper.EnlighterJSWrapper pre span {
   font-size: 113%;
 }
@@ -33,4 +37,16 @@ span.enlighterEnlighterJS.EnlighterJS span {
 
 span.enlighterEnlighterJS.EnlighterJS {
   padding: 3px 5px 3px 5px;
+}
+
+.h5p-alternative-inner .EnlighterJSWrapper {
+  display: block;
+}
+
+.h5p-alternative-inner .EnlighterJSWrapper .EnlighterJSToolbar {
+  display: none;
+}
+
+.h5p-alternative-inner .EnlighterJSWrapper:hover .EnlighterJSToolbar {
+  display: block;
 }

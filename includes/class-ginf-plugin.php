@@ -8,7 +8,7 @@ class GINF_Plugin {
    * Plugin version for cache busting and database updates.
    * @var string
    */
-  const VERSION = '0.3.2';
+  const VERSION = '0.4.0';
 
   /**
    * Instance of this class
@@ -24,6 +24,7 @@ class GINF_Plugin {
     add_action('wp_enqueue_scripts', [$this, 'enqueue_styles_and_scripts']);
     add_action('rest_api_init', [$this, 'init_rest_api']);
     add_action('h5p_alter_library_scripts', [$this, 'h5p_alter_library_scripts'], 10, 3);
+    add_action('h5p_alter_library_styles', [$this, 'h5p_alter_library_styles'], 10, 3);
     add_action('init', ['GINF_Plugin', 'check_for_updates'], 1);
     add_action('h5p_additional_embed_head_tags', [$this, 'h5p_additional_embed_head_tags'], 10, 3);
     add_action('h5p_alter_library_semantics', [$this, 'h5p_alter_library_semantics'], 10, 4);
@@ -43,6 +44,16 @@ class GINF_Plugin {
       self::$instance = new self;
     }
     return self::$instance;
+  }
+
+  /**
+   * Determines if Enlighter plugin is active (currently checks if the constants
+   * are defined).
+   *
+   * @return boolean
+   */
+  public function is_enlighter_active() {
+    return defined('ENLIGHTER_VERSION') && defined('ENLIGHTER_PLUGIN_URL');
   }
 
   /**
@@ -72,8 +83,8 @@ class GINF_Plugin {
   public function enqueue_styles_and_scripts() {
     $version = self::VERSION;
 
-    wp_enqueue_script('ginf/pressbooks', plugin_dir_url(__FILE__) . '../public/js/pressbooks.js', ['jquery',], $version);
-    wp_enqueue_script('ginf/h5p', plugin_dir_url(__FILE__) . '../public/js/h5p.js', [], $version);
+    wp_enqueue_script('ginf/pressbooks', GINF_PLUGIN_URL . 'public/js/pressbooks.js', ['jquery',], $version);
+    wp_enqueue_script('ginf/h5p', GINF_PLUGIN_URL . 'public/js/h5p.js', [], $version);
 
     wp_localize_script('ginf/h5p', 'ginf_h5p_rest_object',
     [
@@ -81,19 +92,59 @@ class GINF_Plugin {
       'api_url'   => site_url('/wp-json/ginf/v1/')
     ]);
 
-    wp_enqueue_style('ginf/enlighter', plugin_dir_url(__FILE__) . '../public/css/enlighter.css', [], $version);
+    wp_enqueue_style('ginf/enlighter', GINF_PLUGIN_URL . 'public/css/enlighter.css', [], $version);
   }
 
   /**
    * Implements h5p_alter_library_scripts action
    */
   public function h5p_alter_library_scripts(&$scripts, $libraries, $embed_type) {
+    $version = self::VERSION;
+
     if ($embed_type === 'external') {
       $scripts[] = (object) [
-        // Path can be relative to wp-content/uploads/h5p or absolute.
-        'path' => plugin_dir_url(__FILE__) . '../public/js/h5p-external.js',
-        'version' => '?ver=' . self::VERSION // Cache buster
+        'path' => GINF_PLUGIN_URL . 'public/js/h5p-external.js',
+        'version' => '?ver=' . $version,
       ];
+    } else if ($embed_type === 'iframe') {
+      if ($this->is_enlighter_active()) {
+        $scripts[] = (object) [
+          'path' => ENLIGHTER_PLUGIN_URL . 'resources/mootools-core-yc.js',
+          'version' => '?ver=' . ENLIGHTER_VERSION,
+        ];
+        $scripts[] = (object) [
+          'path' => ENLIGHTER_PLUGIN_URL . 'resources/EnlighterJS.min.js',
+          'version' => '?ver=' . ENLIGHTER_VERSION,
+        ];
+        $scripts[] = (object) [
+          'path' => GINF_PLUGIN_URL . 'public/js/enlighter.js',
+          'version' => '?ver=' . $version,
+        ];
+      }
+    }
+  }
+
+  /**
+   * Implements h5p_alter_library_scripts action
+   */
+  public function h5p_alter_library_styles(&$styles, $libraries, $embed_type) {
+    $version = self::VERSION;
+
+    if ($embed_type === 'iframe') {
+      if ($this->is_enlighter_active()) {
+        $styles[] = (object) [
+          'path' => GINF_PLUGIN_URL . 'public/css/enlighter.css',
+          'version' => '?ver=' . $version,
+        ];
+        $styles[] = (object) [
+          'path' => ENLIGHTER_PLUGIN_URL . 'resources/EnlighterJS.min.css',
+          'version' => '?ver=' . ENLIGHTER_VERSION,
+        ];
+        $styles[] = (object) [
+          'path' => GINF_PLUGIN_URL . 'public/css/enlighter.css',
+          'version' => '?ver=' . $version,
+        ];
+      }
     }
   }
 
@@ -125,7 +176,7 @@ class GINF_Plugin {
         if (!isset($field->tags)) {
           $field->tags = [];
         }
-        $field->tags = array_merge($field->tags, ['pre',]);
+        $field->tags = array_merge($field->tags, ['pre', 'code',]);
       }
     }
   }
