@@ -8,7 +8,7 @@ class GINF_Plugin {
    * Plugin version for cache busting and database updates.
    * @var string
    */
-  const VERSION = '0.4.1';
+  const VERSION = '0.5.0';
 
   /**
    * Instance of this class
@@ -86,10 +86,15 @@ class GINF_Plugin {
     wp_enqueue_script('ginf/pressbooks', GINF_PLUGIN_URL . 'public/js/pressbooks.js', ['jquery',], $version);
     wp_enqueue_script('ginf/h5p', GINF_PLUGIN_URL . 'public/js/h5p.js', [], $version);
 
+    wp_localize_script('ginf/pressbooks', 'ginf_config_object',
+    [
+      'images_url'   => GINF_PLUGIN_URL . 'public/img/',
+    ]);
+
     wp_localize_script('ginf/h5p', 'ginf_h5p_rest_object',
     [
       'api_nonce' => wp_create_nonce( 'wp_rest' ),
-      'api_url'   => site_url('/wp-json/ginf/v1/')
+      'api_url'   => site_url('/wp-json/ginf/v1/'),
     ]);
 
     wp_enqueue_style('ginf/enlighter', GINF_PLUGIN_URL . 'public/css/enlighter.css', [], $version);
