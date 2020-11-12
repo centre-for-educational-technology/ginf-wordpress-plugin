@@ -3,8 +3,8 @@ Contributors:
 Donate link:
 Tags: pressbooks, h5p, xapi, lrs, enlighter, plugin
 Requires at least: 4.9
-Tested up to: 4.9.10
-Stable tag: 0.5.0
+Tested up to: 5.5.3
+Stable tag: 0.5.1
 License: MIT
 License URI: http://opensource.org/licenses/MIT
 
@@ -72,3 +72,6 @@ Added Enlighter enhancement to embed (external) view.
 
 = 0.5.0 =
 Added logos to the book cover page
+
+= 0.5.1 =
+Changed sector for automatically opening book side menu
